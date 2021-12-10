@@ -30,7 +30,18 @@ interface Config {
    * @default process.cwd()
    */
   root?: string
+
+  /**
+   * Use a custom handler to reload the page (like Turbo)
+   */
+  custom?: boolean
 }
+
+/**
+ * Included integrations to popular third-party libraries
+ */
+const includedCustomHandlers = new Map<string, string>()
+includedCustomHandlers.set('turbo', 'Turbo.clearCache(); Turbo.visit(location.href, { action: "replace" })')
 
 /**
  * Allows to automatically reload the page when a watched file changes.
@@ -38,19 +49,29 @@ interface Config {
 export default (paths: string | string[], config: Config = {}): PluginOption => ({
   name: 'vite-plugin-full-reload',
 
-  apply: 'serve',
-
   // NOTE: Enable globbing so that Vite keeps track of the template files.
   config: () => ({ server: { watch: { disableGlobbing: false } } }),
 
   configureServer ({ watcher, ws, config: { logger } }: ViteDevServer) {
-    const { root = process.cwd(), log = true, always = true, delay = 0 } = config
+    const {
+      root = process.cwd(),
+      log = true,
+      always = true,
+      delay = 0,
+      custom = false,
+    } = config
 
     const files = Array.from(paths).map(path => resolve(root, path))
     const shouldReload = picomatch(files)
+    const reload = (path: string) => {
+      if (custom)
+        ws.send({ type: 'custom', event: 'full-reload', data: { path } })
+      else
+        ws.send({ type: 'full-reload', path })
+    }
     const checkReload = (path: string) => {
       if (shouldReload(path)) {
-        setTimeout(() => ws.send({ type: 'full-reload', path: always ? '*' : path }), delay)
+        setTimeout(() => reload(always ? '*' : path), delay)
         if (log)
           logger.info(`${green('page reload')} ${dim(relative(root, path))}`, { clear: true, timestamp: true })
       }
@@ -62,5 +83,21 @@ export default (paths: string | string[], config: Config = {}): PluginOption => 
     // Do a full page reload if any of the watched files changes.
     watcher.on('add', checkReload)
     watcher.on('change', checkReload)
+  },
+
+  resolveId: (id: string) => {
+    const key = id.replace('virtual:full-reload/', '')
+    if (includedCustomHandlers.has(key))
+      return id
+  },
+  load: (id: string) => {
+    const key = id.replace('virtual:full-reload/', '')
+    if (includedCustomHandlers.has(key)) {
+      return `if (import.meta.hot) {
+        import.meta.hot.on('full-reload', (data) => {
+          ${includedCustomHandlers.get(key)}
+        })
+      }`
+    }
   },
 })

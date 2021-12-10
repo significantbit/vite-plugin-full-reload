@@ -88,6 +88,24 @@ The following options can be provided:
   ```js
   FullReload('app/views/**/*', { always: false })
   ``` 
+  
+- <kbd>custom</kbd>
+
+  Use a custom handler to refresh the page. This will send a custom `full-reload` event to Vite  client instead of triggering a native refresh.
+
+  This package includes a [Turbo](https://turbo.hotwired.dev) integration out-of-the-box.
+  Just add the following import:
+  ```js
+  import 'virtual:full-reload/turbo'
+  ```
+
+  Read more: https://vitejs.dev/guide/api-plugin.html#handlehotupdate
+
+  __Default:__ `false`
+  
+  ```js
+  FullReload('app/views/**/*', { custom: false })
+  ```
 
 ## Acknowledgements
 
