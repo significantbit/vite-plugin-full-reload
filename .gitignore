@@ -22,7 +22,7 @@ node_modules
 .DS_Store
 
 # Vitepress
-dist
+# dist
 examples_dist
 node_modules
 coverage
